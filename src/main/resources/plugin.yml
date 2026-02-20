@@ -28,4 +28,10 @@ permissions:
     default: true
   unt.showownnametag:
     default: true
+  unt.refreshall:
+    default: op
+  unt.repairall:
+    default: op
+  unt.watchdogrun:
+    default: op
 compiled: ${compiled}

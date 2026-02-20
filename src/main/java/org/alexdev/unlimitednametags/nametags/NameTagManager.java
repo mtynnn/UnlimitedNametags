@@ -41,6 +41,7 @@ public class NameTagManager {
     private final Set<UUID> hideNametags;
     private final Map<UUID, Settings.NameTag> nameTagOverrides;
     private final Map<UUID, Boolean> shiftSystemBlocked;
+    private final Map<UUID, Long> lastWatchdogRepair;
     private final List<MyScheduledTask> tasks;
     @Setter
     private boolean debug = false;
@@ -56,6 +57,7 @@ public class NameTagManager {
         this.hideNametags = Sets.newConcurrentHashSet();
         this.nameTagOverrides = Maps.newConcurrentMap();
         this.shiftSystemBlocked = Maps.newConcurrentMap();
+        this.lastWatchdogRepair = Maps.newConcurrentMap();
         this.loadAll();
         this.scaleAttribute = loadScaleAttribute();
     }
@@ -122,8 +124,70 @@ public class NameTagManager {
             tasks.add(point);
         }
 
+        if (plugin.getConfigManager().getSettings().isWatchdogEnabled()) {
+            final long interval = Math.max(20L, plugin.getConfigManager().getSettings().getWatchdogInterval());
+            final MyScheduledTask watchdog = plugin.getTaskScheduler().runTaskTimer(this::runWatchdog, interval, interval);
+            tasks.add(watchdog);
+        }
+
         tasks.add(refresh);
         tasks.add(passengers);
+    }
+
+    private void runWatchdog() {
+        final long now = System.currentTimeMillis();
+        final long cooldownMs = 3000L;
+        final boolean aggressive = plugin.getConfigManager().getSettings().isWatchdogAggressive();
+
+        plugin.getPlayerListener().getOnlinePlayers().values().forEach(player -> {
+            if (!player.isOnline() || player.isDead() || player.getGameMode() == GameMode.SPECTATOR) {
+                return;
+            }
+            if (player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+                return;
+            }
+
+            final UUID uuid = player.getUniqueId();
+            final Long lastFix = lastWatchdogRepair.get(uuid);
+            if (lastFix != null && (now - lastFix) < cooldownMs) {
+                return;
+            }
+
+            final PacketNameTag display = nameTags.get(uuid);
+            if (display == null) {
+                lastWatchdogRepair.put(uuid, now);
+                addPlayer(player, false);
+                return;
+            }
+
+            final int trackers = plugin.getTrackerManager().getTrackers(uuid).size();
+            final int viewers = display.getViewers().size();
+            final boolean shouldHaveViewers = trackers > 0 || plugin.getConfigManager().getSettings().isShowCurrentNameTag();
+
+            if (shouldHaveViewers && viewers == 0) {
+                lastWatchdogRepair.put(uuid, now);
+                if (aggressive) {
+                    repairSinglePlayer(player);
+                } else {
+                    showToTrackedPlayers(player);
+                    refresh(player, true);
+                }
+            }
+        });
+    }
+
+    public void runWatchdogNow() {
+        plugin.getTaskScheduler().runTask(this::runWatchdog);
+    }
+
+    private void repairSinglePlayer(@NotNull Player player) {
+        removePlayer(player);
+        clearCache(player.getUniqueId());
+        addPlayer(player, false);
+        plugin.getTaskScheduler().runTaskLater(() -> {
+            showToTrackedPlayers(player);
+            refresh(player, true);
+        }, 6);
     }
 
     private Attribute loadScaleAttribute() {
@@ -173,7 +237,7 @@ public class NameTagManager {
             return 1;
         }
 
-        return (int) attribute.getValue();
+        return (float) attribute.getValue();
     }
 
     public void blockPlayer(@NotNull Player player) {
@@ -196,6 +260,7 @@ public class NameTagManager {
         hideNametags.remove(uuid);
         nameTagOverrides.remove(uuid);
         shiftSystemBlocked.remove(uuid);
+        lastWatchdogRepair.remove(uuid);
     }
 
     public boolean hasNametagOverride(@NotNull Player player) {
@@ -457,6 +522,7 @@ public class NameTagManager {
             display.handleQuit(player);
             display.getBlocked().remove(player.getUniqueId());
         });
+        lastWatchdogRepair.remove(player.getUniqueId());
     }
 
     public void removeAllViewers(@NotNull Player player) {
@@ -614,9 +680,10 @@ public class NameTagManager {
                     return;
                 }
                 if (isVanished && !plugin.getVanishManager().canSee(viewer, player)) {
-                    return;
+                    packetNameTag.hideFromPlayer(viewer);
+                } else {
+                    packetNameTag.showToPlayer(viewer);
                 }
-                packetNameTag.hideFromPlayer(viewer);
             });
         });
     }
@@ -806,5 +873,34 @@ public class NameTagManager {
 
     public boolean isShiftSystemBlocked(@NotNull Player player) {
         return shiftSystemBlocked.getOrDefault(player.getUniqueId(), false);
+    }
+
+    public void refreshAllConnected() {
+        plugin.getTaskScheduler().runTask(() -> {
+            final Collection<Player> players = plugin.getPlayerListener().getOnlinePlayers().values();
+            players.forEach(player -> {
+                if (getPacketDisplayText(player).isEmpty()) {
+                    addPlayer(player, false);
+                } else {
+                    showToTrackedPlayers(player);
+                }
+            });
+
+            plugin.getTaskScheduler().runTaskLater(() -> players.forEach(player -> refresh(player, true)), 5);
+        });
+    }
+
+    public void repairAllConnected() {
+        plugin.getTaskScheduler().runTask(() -> {
+            final List<Player> players = new ArrayList<>(plugin.getPlayerListener().getOnlinePlayers().values());
+            players.forEach(player -> {
+                removePlayer(player);
+                clearCache(player.getUniqueId());
+            });
+
+            plugin.getTaskScheduler().runTaskLater(() -> players.forEach(player -> addPlayer(player, false)), 2);
+            plugin.getTaskScheduler().runTaskLater(() -> players.forEach(this::showToTrackedPlayers), 12);
+            plugin.getTaskScheduler().runTaskLater(() -> players.forEach(player -> refresh(player, true)), 16);
+        });
     }
 }

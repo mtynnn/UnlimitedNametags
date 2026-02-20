@@ -352,7 +352,7 @@ public class PacketNameTag {
         }
 
         if (plugin.getConfigManager().getSettings().isShowCurrentNameTag()
-                && player.getUniqueId() == owner.getUniqueId()) {
+                && player.getUniqueId().equals(owner.getUniqueId())) {
             if (plugin.getNametagManager().isDebug()) {
                 plugin.getLogger()
                         .info("Player " + player.getName() + " is the owner and show current nametag is enabled.");

@@ -44,6 +44,7 @@ public class PlayerListener implements PackSendHandler {
     private void loadEntityIds() {
         Bukkit.getOnlinePlayers().forEach(player -> {
             playerEntityId.put(player.getEntityId(), player.getUniqueId());
+            playerNameId.put(player.getName(), player.getUniqueId());
             onlinePlayers.put(player.getUniqueId(), player);
         });
     }
@@ -76,6 +77,7 @@ public class PlayerListener implements PackSendHandler {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(@NotNull PlayerJoinEvent event) {
         onlinePlayers.put(event.getPlayer().getUniqueId(), event.getPlayer());
+        playerNameId.put(event.getPlayer().getName(), event.getPlayer().getUniqueId());
         plugin.getTaskScheduler()
                 .runTaskLaterAsynchronously(() -> plugin.getNametagManager().addPlayer(event.getPlayer(), true), 6);
         playerEntityId.put(event.getPlayer().getEntityId(), event.getPlayer().getUniqueId());
@@ -160,7 +162,12 @@ public class PlayerListener implements PackSendHandler {
             return;
         }
 
-        plugin.getTaskScheduler().runTaskLaterAsynchronously(() -> plugin.getNametagManager().showToTrackedPlayers(event.getPlayer()), 1);
+        plugin.getTaskScheduler().runTaskLaterAsynchronously(
+                () -> plugin.getNametagManager().showToTrackedPlayers(event.getPlayer()), 1);
+        plugin.getTaskScheduler().runTaskLaterAsynchronously(
+                () -> plugin.getNametagManager().showToTrackedPlayers(event.getPlayer()), 10);
+        plugin.getTaskScheduler().runTaskLaterAsynchronously(
+                () -> plugin.getNametagManager().refresh(event.getPlayer(), true), 12);
     }
 
     @EventHandler
@@ -195,15 +202,18 @@ public class PlayerListener implements PackSendHandler {
             plugin.getTrackerManager().forceUntrack(event.getPlayer());
         }
 
+        if (event.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+
+        plugin.getTaskScheduler().runTaskLaterAsynchronously(
+                () -> plugin.getNametagManager().showToTrackedPlayers(event.getPlayer()), 2);
+
         if (!plugin.getConfigManager().getSettings().isShowCurrentNameTag()) {
             return;
         }
 
         if (event.getFrom().getWorld() == event.getTo().getWorld() && event.getFrom().distance(event.getTo()) <= 80) {
-            return;
-        }
-
-        if (event.getPlayer().getGameMode() == GameMode.SPECTATOR) {
             return;
         }
 

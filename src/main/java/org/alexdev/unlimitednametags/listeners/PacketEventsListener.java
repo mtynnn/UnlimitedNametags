@@ -28,6 +28,7 @@ public class PacketEventsListener extends PacketListenerAbstract {
 
     private final UnlimitedNameTags plugin;
     private final Map<UUID, Map<String, TeamData>> teams;
+    private volatile boolean registered;
 
     public PacketEventsListener(UnlimitedNameTags plugin) {
         this.plugin = plugin;
@@ -35,7 +36,11 @@ public class PacketEventsListener extends PacketListenerAbstract {
     }
 
     public void onEnable() {
+        if (registered) {
+            return;
+        }
         PacketEvents.getAPI().getEventManager().registerListener(this);
+        registered = true;
     }
 
     @NotNull
@@ -286,11 +291,15 @@ public class PacketEventsListener extends PacketListenerAbstract {
     }
 
     public boolean existsPlayer(@NotNull String name) {
-//        return plugin.getPlayerListener().getPlayerNameId().containsKey(name);
-        return Bukkit.getPlayer(name) != null;
+        return plugin.getPlayerListener().getPlayerNameId().containsKey(name);
     }
 
     public void onDisable() {
+        if (!registered) {
+            return;
+        }
         PacketEvents.getAPI().getEventManager().unregisterListener(this);
+        teams.clear();
+        registered = false;
     }
 }

@@ -95,6 +95,12 @@ public class ConfigManager {
             save();
         }
 
+        if (settings.getWatchdogInterval() < 1) {
+            plugin.getLogger().warning("watchdogInterval is less than 1, resetting to 40");
+            settings.setWatchdogInterval(40);
+            save();
+        }
+
     }
 
     public void save() {

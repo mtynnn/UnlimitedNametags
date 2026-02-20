@@ -45,8 +45,7 @@ public class PAPIManager {
             return text;
         }
         try {
-            final String firstReplacement = PlaceholderAPI.setPlaceholders(player, text);
-            return PlaceholderAPI.setPlaceholders(player, firstReplacement);
+            return PlaceholderAPI.setPlaceholders(player, text);
         } catch (Throwable e) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Failed to set placeholders for text: " + text, e);
             return text;
@@ -62,8 +61,7 @@ public class PAPIManager {
             return text;
         }
         try {
-            final String firstReplacement = PlaceholderAPI.setRelationalPlaceholders(whoSees, target, text);
-            return PlaceholderAPI.setRelationalPlaceholders(whoSees, target, firstReplacement);
+            return PlaceholderAPI.setRelationalPlaceholders(whoSees, target, text);
         } catch (Throwable e) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Failed to set relational placeholders for text: " + text, e);
             return text;

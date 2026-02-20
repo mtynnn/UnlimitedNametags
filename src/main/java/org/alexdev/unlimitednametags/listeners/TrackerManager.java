@@ -81,14 +81,8 @@ public class TrackerManager {
         plugin.getNametagManager().updateDisplay(player, target);
     }
 
-    /**
-     * Removes tracking between two players.
-     *
-     * @param player The observer player.
-     * @param target The target player being observed.
-     */
     public void handleRemove(@NotNull Player player, @NotNull Player target) {
-        plugin.getTaskScheduler().runTaskAsynchronously(() -> removePlayerInternal(player, target));
+        removePlayerInternal(player, target);
     }
 
     private void removePlayerInternal(@NotNull Player player, @NotNull Player target) {
@@ -97,34 +91,18 @@ public class TrackerManager {
         plugin.getNametagManager().removeDisplay(player, target);
     }
 
-    /**
-     * Handles a player quitting the server.
-     * Efficiently cleans up all references in both maps.
-     *
-     * @param player The player who is quitting.
-     */
     public void handleQuit(@NotNull Player player) {
-        plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-            UUID quittingUuid = player.getUniqueId();
+        UUID quittingUuid = player.getUniqueId();
 
-            // 1. Remove the player from the lists of those who were watching them.
-            // trackedBy.removeAll returns who was watching the quitting player.
-            Set<UUID> watchers = trackedBy.removeAll(quittingUuid);
-            if (watchers != null) {
-                for (UUID watcherUuid : watchers) {
-                    trackedPlayers.remove(watcherUuid, quittingUuid);
-                }
-            }
+        final Set<UUID> watchers = trackedBy.removeAll(quittingUuid);
+        for (UUID watcherUuid : watchers) {
+            trackedPlayers.remove(watcherUuid, quittingUuid);
+        }
 
-            // 2. Remove the lists of players the quitting player was watching.
-            // trackedPlayers.removeAll returns who the quitting player was watching.
-            Set<UUID> targets = trackedPlayers.removeAll(quittingUuid);
-            if (targets != null) {
-                for (UUID targetUuid : targets) {
-                    trackedBy.remove(targetUuid, quittingUuid);
-                }
-            }
-        });
+        final Set<UUID> targets = trackedPlayers.removeAll(quittingUuid);
+        for (UUID targetUuid : targets) {
+            trackedBy.remove(targetUuid, quittingUuid);
+        }
     }
 
     /**
@@ -164,13 +142,10 @@ public class TrackerManager {
         final List<Player> trackers = new ArrayList<>();
         final Map<UUID, Player> onlinePlayers = plugin.getPlayerListener().getOnlinePlayers();
 
-        Set<UUID> trackerUuids = trackedBy.get(target.getUniqueId());
-        if (trackerUuids != null) {
-            for (UUID uuid : trackerUuids) {
-                Player p = onlinePlayers.get(uuid);
-                if (p != null) {
-                    trackers.add(p);
-                }
+        for (UUID uuid : trackedBy.get(target.getUniqueId())) {
+            Player p = onlinePlayers.get(uuid);
+            if (p != null) {
+                trackers.add(p);
             }
         }
         return trackers;
@@ -184,5 +159,10 @@ public class TrackerManager {
      */
     public Set<UUID> getTrackedPlayers(@NotNull UUID uuid) {
         return trackedPlayers.get(uuid);
+    }
+
+    @NotNull
+    public Set<UUID> getTrackers(@NotNull UUID uuid) {
+        return trackedBy.get(uuid);
     }
 }

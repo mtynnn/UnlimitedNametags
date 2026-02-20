@@ -68,7 +68,9 @@ public final class UnlimitedNameTags extends JavaPlugin {
             return;
         }
 
-        loadListeners();
+        if (!loadListeners()) {
+            return;
+        }
 
         trackerManager = new TrackerManager(this);
         nametagManager = new NameTagManager(this);
@@ -136,7 +138,7 @@ public final class UnlimitedNameTags extends JavaPlugin {
         return CompletableFuture.runAsync(() -> libraries.forEach(bukkitLibraryManager::loadLibrary));
     }
 
-    private void loadListeners() {
+    private boolean loadListeners() {
         playerListener = new PlayerListener(this);
         Bukkit.getPluginManager().registerEvents(playerListener, this);
         Bukkit.getPluginManager().registerEvents(new OtherListener(this), this);
@@ -149,7 +151,7 @@ public final class UnlimitedNameTags extends JavaPlugin {
             if (!isCorrectSpigotVersion()) {
                 getLogger().severe("Unsupported Spigot version, please use 1.20.2 or higher");
                 getServer().getPluginManager().disablePlugin(this);
-                return;
+                return false;
             }
 
             getLogger().info("Paper not found, using Spigot's tracker");
@@ -159,6 +161,7 @@ public final class UnlimitedNameTags extends JavaPlugin {
         getLogger().info("PacketEvents found, hooking into it");
         packetEventsListener = new PacketEventsListener(this);
         packetEventsListener.onEnable();
+        return true;
     }
 
     private boolean isCorrectSpigotVersion() {
@@ -302,15 +305,30 @@ public final class UnlimitedNameTags extends JavaPlugin {
     public void onDisable() {
         UNTAPI.unregister();
 
-        hooks.values().forEach(Hook::onDisable);
-
-        trackerManager.onDisable();
-        packetEventsListener.onDisable();
-        nametagManager.removeAll();
-        placeholderManager.close();
-        packetManager.close();
-        taskScheduler.cancelTasks();
-        playerListener.close();
+        if (hooks != null) {
+            hooks.values().forEach(Hook::onDisable);
+        }
+        if (trackerManager != null) {
+            trackerManager.onDisable();
+        }
+        if (packetEventsListener != null) {
+            packetEventsListener.onDisable();
+        }
+        if (nametagManager != null) {
+            nametagManager.removeAll();
+        }
+        if (placeholderManager != null) {
+            placeholderManager.close();
+        }
+        if (packetManager != null) {
+            packetManager.close();
+        }
+        if (taskScheduler != null) {
+            taskScheduler.cancelTasks();
+        }
+        if (playerListener != null) {
+            playerListener.close();
+        }
     }
 
 }

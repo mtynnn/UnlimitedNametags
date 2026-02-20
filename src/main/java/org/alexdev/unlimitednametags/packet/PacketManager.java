@@ -17,18 +17,23 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PacketManager {
 
     private final UnlimitedNameTags plugin;
     private final ConcurrentMultimap<UUID, Integer> passengers;
     private final ExecutorService executorService;
+    private final AtomicBoolean closed;
 
     public PacketManager(@NotNull UnlimitedNameTags plugin) {
         this.plugin = plugin;
         this.initialize();
         this.passengers = new ConcurrentMultimap<>();
+        this.closed = new AtomicBoolean(false);
         final ThreadFactory namedThreadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("UnlimitedNameTags-PacketManager-%d")
                 .build();
@@ -46,7 +51,18 @@ public class PacketManager {
     }
 
     public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
         this.executorService.shutdown();
+        try {
+            if (!this.executorService.awaitTermination(2, TimeUnit.SECONDS)) {
+                this.executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            this.executorService.shutdownNow();
+        }
     }
 
     public void setPassengers(@NotNull Player player, @NotNull List<Integer> passengers) {
@@ -54,21 +70,27 @@ public class PacketManager {
     }
 
     public void sendPassengersPacket(@NotNull User player, @NotNull PacketNameTag packetNameTag) {
+        if (closed.get()) {
+            return;
+        }
         final int entityId = packetNameTag.getEntityId();
         final int ownerId = packetNameTag.getOwner().getEntityId();
-        executorService.submit(() -> {
-            if (player.getChannel() == null) {
-                return;
-            }
+        try {
+            executorService.submit(() -> {
+                if (closed.get() || player.getChannel() == null) {
+                    return;
+                }
 
-            final Collection<Integer> ownerPassengers = this.passengers.get(packetNameTag.getOwner().getUniqueId());
-            final Set<Integer> passengers = Sets.newHashSetWithExpectedSize(ownerPassengers.size() + 1);
-            passengers.addAll(ownerPassengers);
-            passengers.add(entityId);
-            final int[] passengersArray = passengers.stream().sorted().mapToInt(i -> i).toArray();
-            final WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(ownerId, passengersArray);
-            player.sendPacketSilently(packet);
-        });
+                final Collection<Integer> ownerPassengers = this.passengers.get(packetNameTag.getOwner().getUniqueId());
+                final Set<Integer> passengers = Sets.newHashSetWithExpectedSize(ownerPassengers.size() + 1);
+                passengers.addAll(ownerPassengers);
+                passengers.add(entityId);
+                final int[] passengersArray = passengers.stream().sorted().mapToInt(i -> i).toArray();
+                final WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(ownerId, passengersArray);
+                player.sendPacketSilently(packet);
+            });
+        } catch (RejectedExecutionException ignored) {
+        }
     }
 
     public void removePassenger(@NotNull Player player, int passenger) {

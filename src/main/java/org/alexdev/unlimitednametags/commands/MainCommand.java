@@ -22,6 +22,9 @@ public class MainCommand {
         plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt debug &7- Debugs the plugin"));
         plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt hide <player> &7- Hides the nametag"));
         plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt show <player> &7- Shows the nametag"));
+        plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt refreshall &7- Rebuilds all online nametags"));
+        plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt repairall &7- Hard repair for all online nametags"));
+        plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt watchdogrun &7- Runs watchdog scan now"));
         plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&a/unt debugger <true/false> &7- Enable or disable the debugger"));
     }
 
@@ -31,6 +34,7 @@ public class MainCommand {
         plugin.getConfigManager().reload();
         plugin.getNametagManager().reload();
         plugin.getPlaceholderManager().reload();
+        plugin.getNametagManager().refreshAllConnected();
         plugin.getKyoriManager().sendMessage(sender, Formatter.LEGACY.format(plugin, sender, "&aUnlimitedNameTags has been reloaded!"));
     }
 
@@ -65,6 +69,30 @@ public class MainCommand {
         plugin.getNametagManager().getPacketDisplayText(target).ifPresent(packetDisplayText -> {
             packetDisplayText.refreshForPlayer(sender);
         });
+    }
+
+    @Command(name = "refreshall", desc = "Refreshes all online nametags", usage = "refreshall")
+    @Require(value = "unt.refreshall", message = "&cYou do not have permission to refresh all nametags")
+    public void onRefreshAll(@Sender CommandSender sender) {
+        plugin.getNametagManager().refreshAllConnected();
+        plugin.getKyoriManager().sendMessage(sender,
+                Formatter.LEGACY.format(plugin, sender, "&aRefreshing all online nametags..."));
+    }
+
+    @Command(name = "repairall", desc = "Hard repairs all online nametags", usage = "repairall")
+    @Require(value = "unt.repairall", message = "&cYou do not have permission to repair all nametags")
+    public void onRepairAll(@Sender CommandSender sender) {
+        plugin.getNametagManager().repairAllConnected();
+        plugin.getKyoriManager().sendMessage(sender,
+                Formatter.LEGACY.format(plugin, sender, "&aRunning hard repair for all online nametags..."));
+    }
+
+    @Command(name = "watchdogrun", desc = "Runs the nametag watchdog now", usage = "watchdogrun")
+    @Require(value = "unt.watchdogrun", message = "&cYou do not have permission to run the watchdog")
+    public void onWatchdogRun(@Sender CommandSender sender) {
+        plugin.getNametagManager().runWatchdogNow();
+        plugin.getKyoriManager().sendMessage(sender,
+                Formatter.LEGACY.format(plugin, sender, "&aWatchdog scan executed."));
     }
 
     @Command(name = "billboard", desc = "Sets the default billboard", usage = "billboard")

@@ -11,7 +11,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class SpigotTrackerListener implements Listener {
 
@@ -23,25 +22,25 @@ public class SpigotTrackerListener implements Listener {
     }
 
     private void startCheckTask() {
-        plugin.getTaskScheduler().runTaskTimerAsynchronously(() -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                final Set<UUID> trackedPlayers = plugin.getTrackerManager().getTrackedPlayers(player.getUniqueId());
-                final Set<UUID> current = player.getTrackedBy().stream()
+        plugin.getTaskScheduler().runTaskTimer(() -> {
+            for (Player target : Bukkit.getOnlinePlayers()) {
+                final Set<UUID> trackedByCache = plugin.getTrackerManager().getTrackers(target.getUniqueId());
+                final Set<UUID> current = target.getTrackedBy().stream()
                         .map(Player::getUniqueId)
-                        .collect(Collectors.toSet());
+                        .collect(java.util.stream.Collectors.toSet());
 
-                final Set<UUID> toRemove = Sets.difference(trackedPlayers, current);
-                final Set<UUID> toAdd = Sets.difference(current, trackedPlayers);
+                final Set<UUID> toRemove = Sets.difference(trackedByCache, current);
+                final Set<UUID> toAdd = Sets.difference(current, trackedByCache);
 
                 toRemove.stream()
                         .map(Bukkit::getPlayer)
                         .filter(Objects::nonNull)
-                        .forEach(p -> plugin.getTrackerManager().handleRemove(player, p));
+                        .forEach(watcher -> plugin.getTrackerManager().handleRemove(watcher, target));
 
                 toAdd.stream()
                         .map(Bukkit::getPlayer)
                         .filter(Objects::nonNull)
-                        .forEach(p -> plugin.getTrackerManager().handleAdd(player, p));
+                        .forEach(watcher -> plugin.getTrackerManager().handleAdd(watcher, target));
             }
         }, 0, 5);
     }

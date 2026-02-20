@@ -89,6 +89,16 @@ public class Settings {
 
     private boolean enableRelationalPlaceholders = false;
 
+    @Comment("Automatic nametag watchdog. Repairs players that lose their nametag unexpectedly.")
+    private boolean watchdogEnabled = true;
+
+    @Comment("How often the watchdog runs (in ticks).")
+    @Setter
+    private int watchdogInterval = 40;
+
+    @Comment("If true, watchdog uses hard per-player repair instead of soft refresh.")
+    private boolean watchdogAggressive = false;
+
     public float getViewDistance() {
         return viewDistance / 160;
     }
